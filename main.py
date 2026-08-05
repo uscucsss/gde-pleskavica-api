@@ -1,7 +1,16 @@
 import sqlite3
 import os
+from dotenv import load_dotenv
+load_dotenv() # команда находит файл .env и загружает переменные из него
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
+from passlib.context import CryptContext
+
+# настройка хэширования для паролей бд
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# кодовое слово для проверки при регистрации 
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "default_pass_if_env_missing")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "pleskavica_v2.db")
@@ -47,6 +56,14 @@ CREATE TABLE IF NOT EXISTS menu (
 )
 ''')
 
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+)
+''')
+
 # 2. ТЕПЕРЬ ОЧИЩАЕМ СТАРЫЕ ДАННЫЕ (теперь таблицы точно существуют!)
 cursor.execute('DELETE FROM menu')
 cursor.execute('DELETE FROM cafes')
@@ -63,6 +80,18 @@ cursor.execute(
 
 conn.commit()
 
+cursor.execute("DELETE FROM users")
+cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'users'")
+
+# пароль из файла .env хэшируется
+hashed_admin_password = "serbia2026"
+
+cursor.execute('''
+INSERT INTO users (username, password)
+VALUES (?, ?)
+''', ("admin", hashed_admin_password))
+
+conn.commit()
 
 # главная страница
 @app.get("/")
