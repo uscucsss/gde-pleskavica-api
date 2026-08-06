@@ -4,11 +4,9 @@ from dotenv import load_dotenv
 load_dotenv() # команда находит файл .env и загружает переменные из него
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
-from passlib.context import CryptContext
+import hashlib
 
 # настройка хэширования для паролей бд
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # кодовое слово для проверки при регистрации 
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "default_pass_if_env_missing")
 
@@ -34,65 +32,65 @@ class DishCreate(BaseModel):
 
 #при старте сервера создается бд и таблица для кафан Сербии
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-cursor = conn.cursor()
-# 1. СНАЧАЛА СОЗДАЕМ ТАБЛИЦЫ
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS cafes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    address TEXT,
-    lat REAL,
-    lon REAL
-)
-''')
 
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS menu (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cafe_id INTEGER,
-    title TEXT,
-    price INTEGER,
-    FOREIGN KEY (cafe_id) REFERENCES cafes (id)
-)
-''')
+@app.on_event("startup")
+def init_db():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    cursor = conn.cursor()
+    # 1. СНАЧАЛА СОЗДАЕМ ТАБЛИЦЫ
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS cafes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        address TEXT,
+        lat REAL,
+        lon REAL
+    )
+    ''')
 
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL
-)
-''')
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS menu (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cafe_id INTEGER,
+        title TEXT,
+        price INTEGER,
+        FOREIGN KEY (cafe_id) REFERENCES cafes (id)
+    )
+    ''')
 
-# 2. ТЕПЕРЬ ОЧИЩАЕМ СТАРЫЕ ДАННЫЕ (теперь таблицы точно существуют!)
-cursor.execute('DELETE FROM menu')
-cursor.execute('DELETE FROM cafes')
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+    )
+    ''')
 
-# 3. СБРАСЫВАЕМ СЧЕТЧИКИ ID ДО 1
-cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'cafes'")
-cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'menu'")
+    # 2. ТЕПЕРЬ ОЧИЩАЕМ СТАРЫЕ ДАННЫЕ (теперь таблицы точно существуют!)
+    cursor.execute("DELETE FROM menu")
+    cursor.execute("DELETE FROM cafes")
+    cursor.execute("DELETE FROM users")
+    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name IN ('cafes', 'menu', 'users')")
 
-# 4. ВСТАВЛЯЕМ ТЕСТОВОЕ КАФЕ
-cursor.execute(
-    "INSERT INTO cafes (name, address, lat, lon) VALUES (?, ?, ?, ?)",
-    ('Walter Cevapi', 'Stranhinjica Bana 57, Beograd', 44.8194, 20.4638)
-)
+    hashed_admin_password = hashlib.sha256("serbia2026".encode()).hexdigest()
 
-conn.commit()
+    cursor.execute('''
+    INSERT INTO users (username, password)
+    VALUES (?, ?)
+    ''', ("admin", hashed_admin_password))
 
-cursor.execute("DELETE FROM users")
-cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'users'")
+    # 3. СБРАСЫВАЕМ СЧЕТЧИКИ ID ДО 1
+    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'cafes'")
+    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'menu'")
 
-# пароль из файла .env хэшируется
-hashed_admin_password = "serbia2026"
+    # 4. ВСТАВЛЯЕМ ТЕСТОВОЕ КАФЕ
+    cursor.execute(
+        "INSERT INTO cafes (name, address, lat, lon) VALUES (?, ?, ?, ?)",
+        ('Walter Cevapi', 'Stranhinjica Bana 57, Beograd', 44.8194, 20.4638)
+    )
 
-cursor.execute('''
-INSERT INTO users (username, password)
-VALUES (?, ?)
-''', ("admin", hashed_admin_password))
-
-conn.commit()
-
+    conn.commit()
+    conn.close()
 # главная страница
 @app.get("/")
 def home():
