@@ -30,6 +30,10 @@ class DishCreate(BaseModel):
     title: str # название блюда 
     price: int # цена в динарах (целое число)
 
+class UserLogin(BaseModel):
+    username: str # вводит логин 
+    password: str # вводит пароль
+
 #при старте сервера создается бд и таблица для кафан Сербии
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 
@@ -201,3 +205,30 @@ def delete_dish(dish_id: int):
     local_conn.close()
 
     return {"status": "success", "message": f"Блюдо '{dish_title}' успешно удалено из базы данных!"}
+
+@app.post("/login")
+def login_user(user_data: UserLogin):
+    # подключение к бд
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    cursor = conn.cursor()
+
+    # в таблице users ищем поьзователя с таким логином, который вводит человек
+    cursor.execute("SELECT password FROM users WHERE username = ?", (user_data.username,))
+    row = cursor.fetchone() # fetchone() берет одну строку из результата поиска 
+
+    conn.close() # закрытие бд
+
+    # если такого логина в бд нету:
+    if row is None:
+        raise HTTPException(status_code=400, detail="Неверный логи или пароль")
+
+    db_password_hash = row[0]
+
+    # введенный пароль пользователя хэшируем 
+    incoming_password_hash = hashlib.sha256(user_data.password.encode())
+
+    if incoming_password_hash != db_password_hash:
+        raise HTTPException(status_code=400, detail="Неверный логин или пароль")
+
+    # если пароль и логин подходят - происходит запуск админа в систему 
+    return {"status": "success", "message": f"Добро пожаловать, {user_data.username}!"}
