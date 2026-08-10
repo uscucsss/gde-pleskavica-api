@@ -226,9 +226,6 @@ def login_user(user_data: UserLogin):
     # введенный пароль пользователя хэшируем 
     incoming_password_hash = hashlib.sha256(user_data.password.encode()).hexdigest()
 
-    print(f"ХЭШ ИЗ БАЗЫ: {db_password_hash}")
-    print(f"ХЭШ ВХОДЯЩИЙ: {incoming_password_hash}")
-
 
     if incoming_password_hash != db_password_hash:
         raise HTTPException(status_code=400, detail="Неверный логин или пароль")
