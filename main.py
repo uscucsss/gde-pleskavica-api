@@ -76,13 +76,12 @@ def init_db():
     cursor.execute("DELETE FROM users")
     cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name IN ('cafes', 'menu', 'users')")
 
-    hashed_admin_password = hashlib.sha256("serbia2026".encode()).hexdigest()
+    hashed_admin_password = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
 
     cursor.execute('''
     INSERT INTO users (username, password)
     VALUES (?, ?)
     ''', ("admin", hashed_admin_password))
-
     # 3. СБРАСЫВАЕМ СЧЕТЧИКИ ID ДО 1
     cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'cafes'")
     cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'menu'")
@@ -225,10 +224,14 @@ def login_user(user_data: UserLogin):
     db_password_hash = row[0]
 
     # введенный пароль пользователя хэшируем 
-    incoming_password_hash = hashlib.sha256(user_data.password.encode())
+    incoming_password_hash = hashlib.sha256(user_data.password.encode()).hexdigest()
+
+    print(f"ХЭШ ИЗ БАЗЫ: {db_password_hash}")
+    print(f"ХЭШ ВХОДЯЩИЙ: {incoming_password_hash}")
+
 
     if incoming_password_hash != db_password_hash:
         raise HTTPException(status_code=400, detail="Неверный логин или пароль")
 
     # если пароль и логин подходят - происходит запуск админа в систему 
-    return {"status": "success", "message": f"Добро пожаловать, {user_data.username}!"}
+    return {"status": "success", "message": f"Добро пожаловать, {user_data.username}!"} 
