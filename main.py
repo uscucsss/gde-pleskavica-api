@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv() # команда находит файл .env и загружает переменные из него
 from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 import hashlib
 
 # настройка хэширования для паролей бд
@@ -206,29 +206,24 @@ def delete_dish(dish_id: int):
     return {"status": "success", "message": f"Блюдо '{dish_title}' успешно удалено из базы данных!"}
 
 @app.post("/login")
-def login_user(user_data: UserLogin):
-    # подключение к бд
+def login_user(user_data: UserLogin, response: Response):
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
 
-    # в таблице users ищем поьзователя с таким логином, который вводит человек
     cursor.execute("SELECT password FROM users WHERE username = ?", (user_data.username,))
-    row = cursor.fetchone() # fetchone() берет одну строку из результата поиска 
+    row = cursor.fetchone()
 
-    conn.close() # закрытие бд
+    conn.close()
 
-    # если такого логина в бд нету:
     if row is None:
-        raise HTTPException(status_code=400, detail="Неверный логи или пароль")
+        raise HTTPException(status_code=400, detail="Неверный логин или пароль")
 
-    db_password_hash = row[0]
-
-    # введенный пароль пользователя хэшируем 
+    db_password_hash = row
     incoming_password_hash = hashlib.sha256(user_data.password.encode()).hexdigest()
-
 
     if incoming_password_hash != db_password_hash:
         raise HTTPException(status_code=400, detail="Неверный логин или пароль")
 
-    # если пароль и логин подходят - происходит запуск админа в систему 
-    return {"status": "success", "message": f"Добро пожаловать, {user_data.username}!"} 
+    response.set_cookie(key="session_id", value="super_secret_cookie", httponly=True)
+        
+    return {"status": "success", "message": f"Добро пожаловать, {user_data.username}!"}
