@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv() # команда находит файл .env и загружает переменные из него
 from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Cookie, Depends
 import hashlib
 
 # настройка хэширования для паролей бд
@@ -101,20 +101,27 @@ def home():
 
 # Новое окно: выдаем список кафан из бд в браузер
 @app.post("/cafes")
-def create_cafe(cafe: CafeCreate):
+def check_admin_session(session_id: str = Cookie(None)):
+    if session_id is None or session_id != "super_secret_cookie":
+        raise HTTPException(
+            status_code=401, 
+            detail="Доступ запрещен. Вы не авторизованы как администратор."
+        )
+    return session_id
+
+def create_cafe(cafe: CafeCreate, admin_session = Depends(check_admin_session)):
     local_conn = sqlite3.connect(DB_PATH)
-    local_cursor = local_conn.cursor()
-    
-    # Записываем новое кафе в базу вместе с его координатами
-    local_cursor.execute(
-        "INSERT INTO cafes (name, address, lat, lon) VALUES (?, ?, ?, ?)",
-        (cafe.name, cafe.address, cafe.lat, cafe.lon)
+    cursor = local_conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO cafes (name, address, lat, lon) VALUES (?,?,?,?)",
+        (cafe.namem, cafe.address, cafe.lat, cafe.lon)
     )
     local_conn.commit()
     local_conn.close()
-    
-    return {"status": "success", "message": f"Кафе '{cafe.name}' успешно добавлено с координатами!"}
-    
+
+    return {"status": "success", "message": f"Кафе '{cafe.name}' успешно добавлено"}
+
     # через цикл проходимся по каждому кафе и ищем его меню
     for cafe in cafes_rows:
         cafe_dict = dict(cafe)
