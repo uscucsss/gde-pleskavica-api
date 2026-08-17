@@ -24,7 +24,6 @@ class CafeCreate(BaseModel):
     lat: float # Широта (дробное число)
     lon: float # Долгота (дробное число)
 
-
 class DishCreate(BaseModel):
     cafe_id: int # ID кафе, к которому будет привязано блюдо (целое число)
     title: str # название блюда 
@@ -41,14 +40,23 @@ conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 def init_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
-    # 1. СНАЧАЛА СОЗДАЕМ ТАБЛИЦЫ
+
+    # создание таблиц 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS cafes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        address TEXT,
-        lat REAL,
-        lon REAL
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    address TEXT, 
+    lat REAL,
+    lon REAL
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
     )
     ''')
 
@@ -59,41 +67,34 @@ def init_db():
         title TEXT,
         price INTEGER,
         FOREIGN KEY (cafe_id) REFERENCES cafes (id)
-    )
-    ''')
+    )''')
 
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
-    )
-    ''')
+    # проверка пустая ли база и если да - наполняем тестовыми данными
+    cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+    admin_exists = cursor.fetchone()
 
-    # 2. ТЕПЕРЬ ОЧИЩАЕМ СТАРЫЕ ДАННЫЕ (теперь таблицы точно существуют!)
-    cursor.execute("DELETE FROM menu")
-    cursor.execute("DELETE FROM cafes")
-    cursor.execute("DELETE FROM users")
-    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name IN ('cafes', 'menu', 'users')")
+    if not admin_exists:
+    # хэшируем пароль из .env
+        hashed_admin_password = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
+        cursor.execute(
+        "INSERT INTO users (username, password) VALUES (?, ?)",
+        ("admin", hashed_admin_password)
+        )
 
-    hashed_admin_password = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
-
-    cursor.execute('''
-    INSERT INTO users (username, password)
-    VALUES (?, ?)
-    ''', ("admin", hashed_admin_password))
-    # 3. СБРАСЫВАЕМ СЧЕТЧИКИ ID ДО 1
-    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'cafes'")
-    cursor.execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'menu'")
-
-    # 4. ВСТАВЛЯЕМ ТЕСТОВОЕ КАФЕ
     cursor.execute(
-        "INSERT INTO cafes (name, address, lat, lon) VALUES (?, ?, ?, ?)",
-        ('Walter Cevapi', 'Stranhinjica Bana 57, Beograd', 44.8194, 20.4638)
-    )
+            "INSERT INTO cafes (name, address, lat, lon) VALUES (?, ?, ?, ?)",
+            ("Walter Cevapi", "Strahinjica Bana 57, Beograd", 44.8194, 20.4638)
+        )
 
-    conn.commit()
-    conn.close()
+    cursor.execute(
+            "INSERT INTO menu (cafe_id, title, price) VALUES (?, ?, ?)",
+            (1, "Гурманская плескавица 300г", 450)
+        )
+print("База данных была пуста. Данные созданы.")
+   
+conn.commit()
+conn.close()
+    
 # главная страница
 @app.get("/")
 def home():
@@ -214,23 +215,34 @@ def delete_dish(dish_id: int):
 
 @app.post("/login")
 def login_user(user_data: UserLogin, response: Response):
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect (DB_PATH, chech_same_thread=False)
     cursor = conn.cursor()
 
+    # ищем хэш пароля в базе 
     cursor.execute("SELECT password FROM users WHERE username = ?", (user_data.username,))
     row = cursor.fetchone()
 
-    conn.close()
+    conn.close() # закрываем соединение после того, как забрали данные
 
+    # проверка нашли ли пользователя 
     if row is None:
         raise HTTPException(status_code=400, detail="Неверный логин или пароль")
 
-    db_password_hash = row
+    db_password_hash = row[0] 
+
+    # хэш введенного админом пароль для сравнения
     incoming_password_hash = hashlib.sha256(user_data.password.encode()).hexdigest()
 
+    # сверяем хэши 
     if incoming_password_hash != db_password_hash:
         raise HTTPException(status_code=400, detail="Неверный логин или пароль")
 
-    response.set_cookie(key="session_id", value="super_secret_cookie", httponly=True)
-        
+    # выдаем скрытый цифровой пропуск в куки браузера 
+    response.set_cookie(
+        key="session_id",
+        value="super_secret_cookie",
+        httponly=True,
+        samesite="lax"
+    )
+
     return {"status": "success", "message": f"Добро пожаловать, {user_data.username}!"}
