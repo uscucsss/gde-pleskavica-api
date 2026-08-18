@@ -215,7 +215,7 @@ def delete_dish(dish_id: int):
 
 @app.post("/login")
 def login_user(user_data: UserLogin, response: Response):
-    conn = sqlite3.connect (DB_PATH, chech_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
 
     # ищем хэш пароля в базе 
