@@ -5,6 +5,7 @@ load_dotenv() # команда находит файл .env и загружае�
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Response, Cookie, Depends
 import hashlib
+from fastapi.middleware.cors import CORSMiddleware
 
 # настройка хэширования для паролей бд
 # кодовое слово для проверки при регистрации 
@@ -14,6 +15,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "pleskavica_v2.db")
 
 app = FastAPI()
+
+# разрешаем html странице общаться с бэкендом
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # разрешает запросы с любого адреса
+    allow_credentials=True,
+    allow_methods=["*"], # разрешает любые действия
+    allow_headers=["*"], # разрешает передавать любые служебные заголовки 
+ )
 
 class DishUpdatePrice(BaseModel):
     price: int # Новая цена в динарах
