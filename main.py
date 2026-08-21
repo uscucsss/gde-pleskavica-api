@@ -111,46 +111,35 @@ def home():
     return {"message": "Добро пожаловать в API Где Плескавица! Сервер работает."}
 
 # Новое окно: выдаем список кафан из бд в браузер
-@app.post("/cafes")
-def check_admin_session(session_id: str = Cookie(None)):
-    if session_id is None or session_id != "super_secret_cookie":
-        raise HTTPException(
-            status_code=401, 
-            detail="Доступ запрещен. Вы не авторизованы как администратор."
-        )
-    return session_id
-
-def create_cafe(cafe: CafeCreate, admin_session = Depends(check_admin_session)):
-    local_conn = sqlite3.connect(DB_PATH)
-    cursor = local_conn.cursor()
-
-    cursor.execute(
-        "INSERT INTO cafes (name, address, lat, lon) VALUES (?,?,?,?)",
-        (cafe.namem, cafe.address, cafe.lat, cafe.lon)
-    )
-    local_conn.commit()
-    local_conn.close()
-
-    return {"status": "success", "message": f"Кафе '{cafe.name}' успешно добавлено"}
-
-    # через цикл проходимся по каждому кафе и ищем его меню
-    for cafe in cafes_rows:
-        cafe_dict = dict(cafe)
-        # вытаскиваем блюда, которые привязаны через id кафе
-        local_cursor.execute("SELECT id, title, price FROM menu WHERE cafe_id = ?", (cafe_dict["id"],))
-        menu_rows = local_cursor.fetchall()
-
-        # превращение блюда в список словарей и вкладываем внутрь кафе
-        cafe_dict["menu"] = [dict(dish) for dish in menu_rows]
-
-
-        # добавление готового кафе с его меню в общий результат
-        result.append(cafe_dict)
-
-    local_conn.close()
-
-    return {"status": "success", "data": result}
+@app.get("/cafes", tags=["Public API"])
+def get_all_cafes():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
     
+    cursor.execute("SELECT id, name, address, lat, lon FROM cafes")
+    cafes_rows = cursor.fetchall()
+    
+    result = []
+    for cafe in cafes_rows:
+        cafe_id = cafe["id"]
+        cursor.execute("SELECT id, title, price FROM menu WHERE cafe_id = ?", (cafe_id,))
+        menu_rows = cursor.fetchall()
+        
+        menu_list = [dict(dish) for dish in menu_rows]
+        
+        result.append({
+            "id": cafe["id"],
+            "name": cafe["name"],
+            "address": cafe["address"],
+            "lat": cafe["lat"],
+            "lon": cafe["lon"],
+            "menu": menu_list
+        })
+        
+    conn.close()
+    return result
+
 @app.post("/menu")
 def create_dish(dish: DishCreate):
     local_conn = sqlite3.connect(DB_PATH)
