@@ -245,3 +245,18 @@ def login_user(user_data: UserLogin, response: Response):
     )
 
     return {"status": "success", "message": f"Добро пожаловать, {user_data.username}!"}
+
+def check_admin_session(session_id: str = Cookie(None)):
+    if session_id != "super_secret_cookie":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return session_id
+
+@app.post("/cafes", tags=["Admin CRUD"])
+def create_cafe(cafe_data: CafeCreate, admin_session: str = Depends(check_admin_session)):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO cafes (name, address, lat, lon) VALUES (?, ?, ?, ?)", 
+                   (cafe_data.name, cafe_data.address, cafe_data.lat, cafe_data.lon))
+    conn.commit()
+    conn.close()
+    return {"status": "success", "message": "Кафе успешно добавлено в базу!"}
