@@ -1,0 +1,90 @@
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #fcf8f2; 
+    color: #2c1a11; 
+    margin: 0;
+    padding: 0;
+}
+
+/* Стилизуем шапку */
+.main-header {
+    background-color: #d35400; 
+    color: white;
+    text-align: center;
+    padding: 20px;
+}
+
+
+.container {
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+
+.cafes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px; 
+}
+
+
+.cafe-card {
+    background-color: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
+    border: 1px solid #edf2f7;
+    transition: transform 0.2s ease;
+}
+
+.cafe-card:hover {
+    transform: translateY(-4px);
+}
+
+.cafe-card h2 {
+    margin: 0 0 12px 0;
+    font-size: 1.5rem;
+    color: #1a365d;
+}
+
+
+.menu-list {
+    list-style: none; 
+    padding: 0;
+}
+
+.menu-item {
+    display: flex;
+    justify-content: space-between; 
+    padding: 8px 0;
+    border-bottom: 1px dashed #f1c40f; 
+}
+
+.hero-banner {
+    background-image: linear-gradient(
+        to right, 
+        rgba(26, 54, 93, 0.95) 0%,   
+        rgba(43, 108, 176, 0.5) 20%, 
+        rgba(252, 248, 242, 0) 50%  
+    ), url('https://picsum.photos');
+    
+    background-size: cover;        
+    background-position: right center; 
+    color: white;
+    text-align: left;              
+    padding: 80px 40px;            
+}
+
+.hero-overlay h2 {
+    font-size: 2.2rem;
+    margin: 0 0 10px 0;
+    color: #ffffff;
+}
+
+.hero-overlay p {
+    font-size: 1.1rem;
+    margin: 0;
+    opacity: 0.9;
+}
